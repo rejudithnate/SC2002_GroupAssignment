@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Scanner;
 import restaurantrush.boundary.GameUI;
 import restaurantrush.control.GameController;
-import restaurantrush.control.GameState;
-import restaurantrush.control.GameView;
 import restaurantrush.control.TurnController;
 import restaurantrush.entity.*;
 
@@ -20,7 +18,7 @@ public final class SkeletonTest {
         orderAndPaymentLifecycle();
         queuesAndCollections();
         boundaryInput();
-        controllerPort();
+        controllerDisplay();
         System.out.println("Passed 5 skeleton contract checks.");
     }
 
@@ -94,16 +92,25 @@ public final class SkeletonTest {
         }
     }
 
-    private static void controllerPort() {
+    private static void controllerDisplay() {
         Restaurant restaurant = new Restaurant();
-        RecordingView view = new RecordingView();
-        GameController game = new GameController(restaurant, new TurnController(restaurant), view);
-        game.startGame();
-        check(view.state != null && view.state.turn() == 1 && view.state.maxTurns() == 18, "Controller must present initial state through its port");
-        expect(IllegalArgumentException.class, () -> game.setCurrentTurn(19));
-        // Replace these expectations when implementing the corresponding gameplay tasks.
-        expect(UnsupportedOperationException.class, game::isVictory);
-        expect(UnsupportedOperationException.class, game::startTurn);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (Scanner input = new Scanner(""); PrintStream stream = new PrintStream(output)) {
+            GameUI ui = new GameUI(input, stream);
+            GameController game = new GameController(restaurant, new TurnController(restaurant), ui);
+            game.startGame();
+            check(output.toString().contains("Turn 1/18"), "Controller must display the initial turn through GameUI");
+            output.reset();
+            restaurant.addWaitingCustomer(new Customer(1));
+            game.setCurrentTurn(4);
+            game.startGame();
+            check(output.toString().contains("Turn 4/18") && output.toString().contains("Waiting: 1"),
+                    "Display must read the current turn and restaurant state");
+            expect(IllegalArgumentException.class, () -> game.setCurrentTurn(19));
+            // Replace these expectations when implementing the corresponding gameplay tasks.
+            expect(UnsupportedOperationException.class, game::isVictory);
+            expect(UnsupportedOperationException.class, game::startTurn);
+        }
     }
 
     private static void check(boolean condition, String message) {
@@ -120,11 +127,4 @@ public final class SkeletonTest {
         throw new AssertionError("Expected " + expected.getSimpleName());
     }
 
-    private static final class RecordingView implements GameView {
-        private GameState state;
-        public void displayGameState(GameState state) { this.state = state; }
-        public int getWaiterChoice() { return 0; }
-        public int readChefChoice() { return 0; }
-        public void displayResult(boolean victory) { }
-    }
 }

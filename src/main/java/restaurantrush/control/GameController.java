@@ -1,6 +1,7 @@
 package restaurantrush.control;
 
 import java.util.Objects;
+import restaurantrush.boundary.GameUI;
 import restaurantrush.entity.Restaurant;
 
 /** Session orchestration. This skeleton intentionally does not implement the game loop. */
@@ -9,22 +10,30 @@ public final class GameController {
     private int currentTurn = 1;
     private final Restaurant restaurant;
     private final TurnController turnController;
-    private final GameView view;
+    private final GameUI ui;
 
-    public GameController(Restaurant restaurant, TurnController turnController, GameView view) {
+    public GameController(Restaurant restaurant, TurnController turnController, GameUI ui) {
         this.restaurant = Objects.requireNonNull(restaurant);
         this.turnController = Objects.requireNonNull(turnController);
-        this.view = Objects.requireNonNull(view);
+        this.ui = Objects.requireNonNull(ui);
     }
 
     /** Displays initial state. TODO: implement the 18-turn loop and final result. */
     public void startGame() {
-        displayState();
+
+        while (currentTurn < MAX_TURN) {
+            startTurn();
+        }
+
+        ui.displayResult(isVictory());
     }
 
     /** TODO: agree victory thresholds with the assignment specification. */
     public boolean isVictory() {
-        throw new UnsupportedOperationException("TODO: implement victory conditions");
+        return currentTurn == MAX_TURN
+            && restaurant.getPaidCustomerCount() >= 4
+            && restaurant.getRevenue() >= 45
+            && restaurant.getAvgSatisfaction() >= 60;
     }
 
     public void setCurrentTurn(int turnNo) {
@@ -38,14 +47,21 @@ public final class GameController {
 
     /** Processes the current turn. The future session loop owns advancing the turn number. */
     public void startTurn() {
-        turnController.runTurn(currentTurn);
-        displayState();
-    }
+        if (!started) {
+            throw new IllegalStateException("Call startGame() first.");
+        }
 
-    private void displayState() {
-        view.displayGameState(new GameState(currentTurn, MAX_TURN,
-                restaurant.getRevenue(), restaurant.getAvgSatisfaction(),
-                restaurant.getWaitingCustomers().size(), restaurant.getPendingOrders().size(),
-                restaurant.getServedCustomers(), restaurant.getUnhappyCustomers()));
+        if (currentTurn >= MAX_TURN) {
+            throw new IllegalStateException("All turns are complete.");
+        }
+
+        currentTurn++;
+
+        // Displays the state at the beginning of this turn.
+        ui.displayGameState();
+
+        // Handles arrivals, staff actions, payments, satisfaction, etc.
+        turnController.runTurn(currentTurn);
     }
 }
+

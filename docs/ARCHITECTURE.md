@@ -4,23 +4,22 @@
 
 ```text
 Main (composition root)
-  -> GameUI implements GameView
+  -> GameUI (console input/output)
   -> GameController -> TurnController -> entities
-         -> GameView (port) <- GameUI
-         -> GameState (immutable presentation data)
+         -> GameUI -> Restaurant getters (display only)
 ```
 
-`GameUI` formats snapshots and parses input. `GameController` will own the session loop, final result and turn counter. `TurnController` will coordinate phases and staff actions. Entities hold state and local behavior without console or controller dependencies. Controllers receive the view through an interface, so tests can replace the console with a small fake.
+`GameUI` formats restaurant state and parses input. `GameController` will own the session loop, final result and turn counter. `TurnController` will coordinate phases and staff actions. Entities hold state and local behavior without console or controller dependencies. Main constructs GameUI and passes it directly to GameController. Tests supply a Scanner and captured PrintStream to exercise the real UI without an interactive console.
 
-The UML's UI/controller dependency is implemented as a control-owned port instead of coupling the controller to the concrete console. `GameState` ensures the boundary receives values, not mutable entities. When implementing actions, extend the snapshot with immutable options/IDs and let controllers resolve selections to entities.
+The skeleton uses the original UML classes without an additional view interface or state-transfer class. GameController calls GameUI directly, passing Restaurant and turn numbers to `displayGameState`. This display method only reads getters; game mutations stay in control/entity operations. This is a coding convention rather than compiler-enforced read-only access. The concrete controller-to-UI call and display arguments should be reflected when synchronising the UML with the code.
 
 ## SOLID in this scaffold
 
 - **Single responsibility:** presentation, turn orchestration, session flow and individual domain objects have separate files and responsibilities.
-- **Open/closed:** another boundary can implement `GameView` without modifying domain logic. Introduce small rule policies when actual alternative rules exist.
-- **Liskov substitution:** `GameUI` and test views fulfill the same `GameView` contract. There is no artificial staff inheritance hierarchy.
-- **Interface segregation:** `GameView` exposes only game presentation/input operations; entities do not depend on it. Split input/output ports if future clients need only one side.
-- **Dependency inversion:** the controller depends on `GameView`, injected by `Main`, rather than constructing a console boundary. Stable entities remain concrete; an interface for every class is unnecessary.
+- **Open/closed:** domain rules are separate from console formatting, but replacing the concrete UI would require changing controller dependencies. Do not claim interchangeable boundaries in this version.
+- **Liskov substitution:** no custom inheritance or interchangeable implementations are introduced; there is no concrete example of this principle to claim yet.
+- **Interface segregation:** there are no custom interfaces in this skeleton. Keep each class's public methods focused rather than adding an interface just for the checklist.
+- **Dependency inversion:** Main injects concrete dependencies so construction is separate from use. This is dependency injection, not a full example of DIP: GameController depends directly on GameUI.
 
 ## Deliberate UML corrections
 
@@ -34,7 +33,7 @@ The UML's UI/controller dependency is implemented as a control-owned port instea
 | Revenue `int`, prices `double` | Revenue is `double` so fractional prices are retained. For real monetary software, agree integer cents or `BigDecimal` consistently across all price APIs. |
 | Stored `AvgSatisfaction: int`, getter `double` | Derived `double` average avoids stale duplicated state. Population is provisional; see below. |
 | `getServedCustomers(customer_id, customerstatus)` and counter setters | Read-only counter getters and named recording operations. Payment increments served count; `recordUnhappyDeparture()` increments departures. |
-| `displayGameState()` without parameters | Receives an immutable `GameState` snapshot, avoiding a boundary reference to mutable Restaurant. |
+| `displayGameState()` without parameters | Receives Restaurant, current turn and maximum turns explicitly, so GameUI can display state without storing a controller reference. It must use getters only. |
 | Missing constructors/getters | Added to initialise dependencies and access state without public fields. |
 | Table/customer association | `Table` updates both ends. `Customer.setTable` delegates; moving an already-seated customer requires unseating first. |
 | Two tables, three menu items, up to six orders | Two tables are created; Menu validates exactly three entries; Restaurant permits up to six registered orders. Closed orders can be removed to free slots. |
@@ -51,7 +50,7 @@ The UML's UI/controller dependency is implemented as a control-owned port instea
 - Waiting/payment queues use FIFO. Payment peek is non-destructive; remove the customer only after success. Seating and departure queue cleanup remain controller responsibilities.
 - Payment validates a registered served order and READY_TO_PAY status, marks order/customer paid, then records revenue and served count once. Whether “served” means meals delivered instead is an open decision.
 - Average satisfaction covers distinct waiting, seated and payment-queue customers; an empty restaurant reports 0. Lifetime/final scoring is unspecified. Do not use this provisional metric for victory until agreed.
-- Collection membership is protected by immutable lists, but entity objects remain mutable within the domain. The boundary only receives immutable snapshots.
+- Collection membership is protected by immutable lists, but entity objects remain mutable. The boundary receives Restaurant for display and must not call its mutation methods.
 - `startGame()` displays state only. `runTurn`, `isVictory` and no-argument satisfaction decay throw `UnsupportedOperationException`. Private turn-phase methods are TODO outlines, not implemented phases.
 
 The scaffold is single-threaded. Status transitions and complete seat/order/departure transactions need the remaining control workflows and tests; this is not a finished game engine.
