@@ -1,26 +1,37 @@
-package restaurantrush.entity;
+package restaurant.staff;
 
-public final class Chef {
+import restaurant.model.Order;
+
+public class Chef {
     private boolean hasActed;
 
-    public Chef() { }
-
-    public void prepareOrder(Order order) {
-        requireAvailable();
-        order.prepareUnit();
-        hasActed = true;
-    }
-
-    public boolean isAvailable() { return !hasActed; }
-    public void resetForNewTurn() { hasActed = false; }
-
-    /** Called skipTurn because Object.wait() is final in Java. */
-    public void skipTurn() {
-        requireAvailable();
-        hasActed = true;
+    public Chef() {
+        hasActed = false;
     }
 
     private void requireAvailable() {
         if (hasActed) { throw new IllegalStateException("Chef already acted this turn"); }
+    }
+
+    public void resetForNewTurn() {
+        hasActed = false;
+    }
+
+    public void prepareOrder(Order order) {
+        requireAvailable();
+
+        if (order == null) {
+            throw new IllegalArgumentException(
+                "Order is required."
+            );
+        }
+
+        order.prepareUnit();
+        hasActed = true;
+    }
+
+    public void waitTurn() {
+        requireAvailable();
+        hasActed = true;
     }
 }
