@@ -66,7 +66,7 @@ public final class Order {
     }
 
     public void cancel() {
-        if (status == OrderStatus.PAID || status == OrderStatus.CANCELLED) {
+        if (status != OrderStatus.PREPARING && status != OrderStatus.READY) {
             throw new IllegalStateException("Order is already closed");
         }
 
@@ -74,9 +74,11 @@ public final class Order {
     }
 
     public double getPrice() {
-        return menuItems.stream()
-                .mapToDouble(MenuItem::getPrice)
-                .sum();
+        return getPriceCents() / 100.0;
+    }
+
+    public int getPriceCents() {
+        return menuItems.stream().mapToInt(MenuItem::getPriceCents).reduce(0, Math::addExact);
     }
 
     private void requireStatus(OrderStatus expected) {

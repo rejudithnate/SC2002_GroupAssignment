@@ -2,175 +2,177 @@ package restaurantrush.entity;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.Queue;
 
-
-/** Aggregate holding restaurant state. Collections are exposed as immutable snapshots. */
 public final class Restaurant {
-   public static final int TABLE_COUNT = 2;
-   public static final int MAX_ORDERS = 6;
-   private int revenue = 0;
-   private final List<Table> tables = List.of(new Table(1), new Table(2));
-   private final List<Order> orders = new ArrayList<>();
-   private final Waiter waiter = new Waiter();
-   private final Chef chef = new Chef();
-   private final Cashier cashier = new Cashier();
-   private final Queue<Customer> waitingQueue = new ArrayDeque<>();
-   private final Queue<Customer> paymentQueue = new ArrayDeque<>();
-   private int unhappyDepartures = 0;
-   private int servedCustomers = 0;
-   private int paidCustomers = 0;
-   private int totalPaidSatisfaction = 0;
+    public static final int TABLE_COUNT = 2;
+    public static final int MAX_ORDERS = 6;
+    private int revenueCents;
+    private final List<Table> tables = List.of(new Table(1), new Table(2));
+    private final List<Order> orders = new ArrayList<>();
+    // Retain registered IDs after departure to prevent duplicate arrivals.
+    private final Map<Integer, Customer> customers = new LinkedHashMap<>();
+    private final Waiter waiter = new Waiter();
+    private final Chef chef = new Chef();
+    private final Cashier cashier = new Cashier();
+    private final Menu menu = new Menu();
+    private final Queue<Customer> waitingQueue = new ArrayDeque<>();
+    private final Queue<Customer> paymentQueue = new ArrayDeque<>();
+    private int unhappyDepartures;
+    private int servedCustomers;
+    private int paidCustomers;
+    private int totalPaidSatisfaction;
 
-   public int getRevenue() {
-       return revenue;
-   }
-   public List<Table> getTables() {
-       return tables;
-   }
-   public List<Order> getOrders() {
-       return List.copyOf(orders);
-   }
-  
-   public List<Customer> getWaitingCustomers() {
-       return List.copyOf(waitingQueue);
-   }
-   public List<Customer> getPayingCustomers() {
-       return List.copyOf(paymentQueue);
-   }
+    public double getRevenue() { return revenueCents / 100.0; }
+    public int getRevenueCents() { return revenueCents; }
+    public List<Table> getTables() { return tables; }
+    public List<Order> getOrders() { return List.copyOf(orders); }
+    public Waiter getWaiter() { return waiter; }
+    public Chef getChef() { return chef; }
+    public Cashier getCashier() { return cashier; }
+    public List<Customer> getWaitingCustomers() { return List.copyOf(waitingQueue); }
+    public List<Customer> getPayingCustomers() { return List.copyOf(paymentQueue); }
+    public int getArrivalCount() { return customers.size(); }
+    public int getUnhappyCustomers() { return unhappyDepartures; }
+    /** Meals delivered, including customers who have not paid yet. */
+    public int getServedCustomers() { return servedCustomers; }
+    public int getPaidCustomerCount() { return paidCustomers; }
 
+    public List<Customer> getCustomers() {
+        return customers.values().stream().filter(customer ->
+                customer.getStatus() != CustomerStatus.PAID
+                && customer.getStatus() != CustomerStatus.CANCELLED).toList();
+    }
 
-   public void addOrder(Order order) {
-       if (order == null || orders.contains(order)) {
-           throw new IllegalArgumentException("Invalid or duplicate order");
-       }
+    public Customer getCustomer(int id) {
+        Customer customer = customers.get(id);
+        if (customer == null) { throw new IllegalArgumentException("Unknown customer " + id); }
+        return customer;
+    }
 
-       orders.add(order);
-   }
-   /** Release a closed order's slot; archive it separately if history is later required. */
-   public void removeClosedOrder(Order order) {
-       if (order.getStatus() != OrderStatus.PAID && order.getStatus() != OrderStatus.CANCELLED) {
-           throw new IllegalStateException("Order must be closed before removal");
-       }
-       orders.remove(order);
-   }
+    public OptionalDouble getPaidSatisfactionAverage() {
+        return paidCustomers == 0 ? OptionalDouble.empty()
+                : OptionalDouble.of((double) totalPaidSatisfaction / paidCustomers);
+    }
 
+    public double getAvgSatisfaction() { return getPaidSatisfactionAverage().orElse(0); }
 
-   public void addWaitingCustomer(Customer customer) {
-        if (customer == null) {
-        throw new IllegalArgumentException("Customer cannot be null");
+    public void addWaitingCustomer(Customer customer) {
+        Objects.requireNonNull(customer);
+        if (customer.getStatus() != CustomerStatus.WAITING || customer.getTable() != null
+                || customers.containsKey(customer.getCustomerId()) || customers.size() >= 6) {
+            throw new IllegalArgumentException("Expected a new waiting customer within the six-arrival limit");
         }
-
-        if (customer.getStatus() != CustomerStatus.WAITING) {
-            throw new IllegalArgumentException("Customer must be waiting");
-        }
-
+        customers.put(customer.getCustomerId(), customer);
         waitingQueue.add(customer);
-   }
+    }
 
+    public Table getAvailableTable() {
+        return tables.stream().filter(Table::isAvailable).findFirst().orElse(null);
+    }
 
-   public Customer getWaitingCustomer() {
-       return waitingQueue.peek();
-   }
+    public List<Order> getPendingOrders() {
+        return orders.stream().filter(order -> order.getStatus() == OrderStatus.PREPARING).toList();
+    }
 
-   public boolean removeWaitingCustomer(Customer customer) {
-       return waitingQueue.remove(customer);
-   }
+    public void seatCustomer(int id) {
+        Customer customer = getCustomer(id);
+        if (!waitingQueue.contains(customer)) { throw new IllegalStateException("Customer is not in the waiting queue"); }
+        Table table = getAvailableTable();
+        if (table == null) { throw new IllegalStateException("All tables are occupied"); }
+        waiter.sitCustomer(customer, table);
+        waitingQueue.remove(customer);
+    }
 
+    public Order takeOrder(int id) {
+        Customer customer = getCustomer(id);
+        if (!waiter.isAvailable() || customer.getStatus() != CustomerStatus.SEATED
+                || customer.getOrder() != null || customer.getTable() == null
+                || customer.getTable().getCustomer() != customer || orders.size() >= MAX_ORDERS) {
+            throw new IllegalStateException("Cannot take this customer's order");
+        }
+        Order order = new Order(customer.getTable().getTableId(), List.of(menu.chooseForCustomer(id)));
+        customer.setOrder(order);
+        orders.add(order);
+        waiter.takeOrder(customer);
+        return order;
+    }
 
-   public List<Order> getPendingOrders() {
-       List<Order> pendingOrders = new ArrayList<>();
+    public void serveCustomer(int id, int turn) {
+        Customer customer = getCustomer(id);
+        if (turn < 1 || customer.getStatus() != CustomerStatus.ORDERED
+                || customer.getOrder() == null || !orders.contains(customer.getOrder())) {
+            throw new IllegalStateException("Customer has no registered order to serve");
+        }
+        waiter.serveOrder(customer.getOrder());
+        customer.recordService(turn);
+        servedCustomers++;
+    }
 
-        for (Order order : orders) {
-            if (order.getStatus() == OrderStatus.PREPARING) {
-                pendingOrders.add(order);
+    public void finishEating(int turn) {
+        for (Customer customer : getCustomers()) {
+            if (customer.getStatus() == CustomerStatus.ORDERED
+                    && customer.getOrder().getStatus() == OrderStatus.SERVED
+                    && customer.getServedTurn() < turn) {
+                customer.finishEating(turn);
+                paymentQueue.add(customer);
             }
         }
+    }
 
-        return pendingOrders;
-   }
+    /** Returns only the oldest customer who was ready before this turn. */
+    public Customer getEligiblePayingCustomer(int turn) {
+        Customer customer = paymentQueue.peek();
+        return customer != null && customer.getReadyToPayTurn() < turn ? customer : null;
+    }
 
+    public Customer getNextPayingCustomer() { return paymentQueue.peek(); }
 
-   public void enqueueForPayment(Customer customer) {
-        if (customer == null) {
-        throw new IllegalArgumentException("Customer cannot be null");
+    /** Validates all prerequisites before recording a payment and cleaning up. */
+    public void completePayment(Customer customer) {
+        Objects.requireNonNull(customer);
+        Order order = customer.getOrder();
+        Table table = customer.getTable();
+        if (customers.get(customer.getCustomerId()) != customer || paymentQueue.peek() != customer
+                || customer.getStatus() != CustomerStatus.READY_TO_PAY
+                || order == null || !orders.contains(order) || order.getStatus() != OrderStatus.SERVED
+                || table == null || table.getCustomer() != customer) {
+            throw new IllegalStateException("Expected the oldest queued customer with a served order and table");
         }
+        int nextRevenue = Math.addExact(revenueCents, order.getPriceCents());
+        order.markPaid();
+        customer.setStatus(CustomerStatus.PAID);
+        revenueCents = nextRevenue;
+        paidCustomers++;
+        totalPaidSatisfaction += customer.getSatisfaction();
+        paymentQueue.remove();
+        table.unAssign();
+        orders.remove(order);
+    }
 
-        if (customer.getStatus() != CustomerStatus.READY_TO_PAY) {
-            throw new IllegalStateException("Customer is not ready to pay");
-        }
-
-        if (paymentQueue.contains(customer)) {
-            throw new IllegalStateException("Customer already in queue");
-        }
-
-        paymentQueue.add(customer);
-   }
-
-
-   /** Non-destructive peek: process payment before removing the customer. Null means empty. */
-   public Customer getNextPayingCustomer() {
-       return paymentQueue.peek();
-   }
-   public boolean removePayingCustomer(Customer customer) {
-       return paymentQueue.remove(customer);
-   }
-
-
-   /** Returns null if all tables are occupied. */
-   public Table getAvailableTable() {
-    for (Table table : tables) {
-        if (table.isAvailable()) {
-            return table;
+    public void applyWaitingAndDepartures() {
+        for (Customer customer : getCustomers()) {
+            if (customer.isWaitingForService()) {
+                customer.decreaseSatisfaction();
+                if (customer.getSatisfaction() == 0) { abandon(customer); }
+            }
         }
     }
-    return null;
-   }
 
-
-   /** Records payment once; repeated calls fail before revenue changes. */
-   public void updateRevenue(Customer customer) {
-       revenue += order.getPrice();
-       servedCustomers++;
-   }
-
-
-   /** Provisional metric: current waiting and seated customers, deduplicated; empty means 0. */
-   public double getAvgSatisfaction() {
-       if (paidCustomers == 0) {
-           return 0.0;
-       }
-       double avgSatisfaction = (double) totalPaidSatisfaction / paidCustomers;
-       return avgSatisfaction;
-   }
-
-
-   /** TODO: make departure recording atomic with removal/cancellation in the turn workflow. */
-   public void recordUnhappyDeparture() {
-       unhappyDepartures++;
-   }
-   public int getUnhappyCustomers() {
-       return unhappyDepartures;
-   }
-   public int getServedCustomers() {
-       return servedCustomers; 
-   }
-
-
-   public Waiter getWaiter() {
-       return waiter;
-   }
-
-
-   public Chef getChef() {
-       return chef;
-   }
-
-
-   public Cashier getCashier() {
-       return cashier;
-   }
+    private void abandon(Customer customer) {
+        Order order = customer.getOrder();
+        if (order != null) {
+            order.cancel();
+            orders.remove(order);
+        }
+        waitingQueue.remove(customer);
+        if (customer.getTable() != null) { customer.getTable().unAssign(); }
+        customer.setStatus(CustomerStatus.CANCELLED);
+        unhappyDepartures++;
+    }
 }
-
-

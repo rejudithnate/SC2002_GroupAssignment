@@ -1,23 +1,18 @@
-
 package restaurantrush.entity;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public final class Menu {
+    private final List<MenuItem> menuItems = List.of(
+            new MenuItem("Salad", 9, 1),
+            new MenuItem("Burger", 15, 1),
+            new MenuItem("Pasta", 18, 2));
 
-    private final List<MenuItem> menuItems;
+    public List<MenuItem> getMenuItems() { return menuItems; }
 
-    public Menu() {
-        menuItems = new ArrayList<>();
-
-        menuItems.add(new MenuItem("Salad", 9.0, 1));
-        menuItems.add(new MenuItem("Burger", 15.0, 1));
-        menuItems.add(new MenuItem("Pasta", 18.0, 2));
-    }
-
-    public List<MenuItem> getMenuItems() {
-        return new ArrayList<>(menuItems);
+    /** Repeatable customer choice: Pasta, Salad, Burger, then repeat by customer ID. */
+    public MenuItem chooseForCustomer(int customerId) {
+        if (customerId < 1) { throw new IllegalArgumentException("Customer ID must be positive"); }
+        return menuItems.get((customerId - 1 + 2) % menuItems.size());
     }
 }
-

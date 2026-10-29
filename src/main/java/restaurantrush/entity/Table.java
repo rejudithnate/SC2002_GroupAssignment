@@ -1,5 +1,4 @@
 package restaurantrush.entity;
-import java.util.Objects;
 
 /** Owns the bidirectional table/customer association. */
 public final class Table {
@@ -11,6 +10,7 @@ public final class Table {
     private Customer customer;
 
     public Table(int tableId) {
+        if (tableId < 1) { throw new IllegalArgumentException("Table ID must be positive"); }
         this.tableId = tableId;
         this.customer = null;
     }
@@ -37,6 +37,9 @@ public final class Table {
         }
         if (customer.getTable() != null) {
             throw new IllegalStateException("Customer already has a table.");
+        }
+        if (customer.getStatus() != CustomerStatus.WAITING) {
+            throw new IllegalStateException("Only waiting customers can be seated");
         }
 
         this.customer = customer;

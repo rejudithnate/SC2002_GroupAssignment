@@ -4,10 +4,12 @@ import java.util.Objects;
 import restaurantrush.boundary.GameUI;
 import restaurantrush.entity.Restaurant;
 
-/** Session orchestration. This skeleton intentionally does not implement the game loop. */
+/** Owns one session and evaluates the result only after all 18 turns finish. */
 public final class GameController {
     public static final int MAX_TURN = 18;
-    private int currentTurn = 1;
+    // Number of completed turns; zero means the session has not completed a turn.
+    private int currentTurn;
+    private boolean started;
     private final Restaurant restaurant;
     private final TurnController turnController;
     private final GameUI ui;
@@ -16,52 +18,34 @@ public final class GameController {
         this.restaurant = Objects.requireNonNull(restaurant);
         this.turnController = Objects.requireNonNull(turnController);
         this.ui = Objects.requireNonNull(ui);
-    }
-
-    /** Displays initial state. TODO: implement the 18-turn loop and final result. */
-    public void startGame() {
-
-        while (currentTurn < MAX_TURN) {
-            startTurn();
+        if (turnController.getRestaurant() != restaurant || turnController.getCompletedTurns() != 0) {
+            throw new IllegalArgumentException("Game and turn controllers must share a fresh restaurant session");
         }
-
-        ui.displayResult(isVictory());
     }
 
-    /** TODO: agree victory thresholds with the assignment specification. */
+    public void startGame() {
+        if (started) { throw new IllegalStateException("Create a new game to play again"); }
+        started = true;
+        while (currentTurn < MAX_TURN) {
+            if (!turnController.runTurn(currentTurn + 1, ui)) {
+                ui.displayInputEnded();
+                return;
+            }
+            currentTurn++;
+        }
+        ui.displayResult(isVictory(), restaurant);
+    }
+
     public boolean isVictory() {
         return currentTurn == MAX_TURN
-            && restaurant.getPaidCustomerCount() >= 4
-            && restaurant.getRevenue() >= 45
-            && restaurant.getAvgSatisfaction() >= 60;
+                && meetsVictoryTargets(restaurant.getPaidCustomerCount(),
+                        restaurant.getRevenueCents(), restaurant.getAvgSatisfaction());
     }
 
-    public void setCurrentTurn(int turnNo) {
-        if (turnNo < 1 || turnNo > MAX_TURN) {
-            throw new IllegalArgumentException("Turn must be between 1 and " + MAX_TURN);
-        }
-        currentTurn = turnNo;
+    /** Shared scoring rule; revenue is expressed in integer cents. */
+    public static boolean meetsVictoryTargets(int paidCustomers, int revenueCents, double averageSatisfaction) {
+        return paidCustomers >= 4 && revenueCents >= 4500 && averageSatisfaction >= 60;
     }
 
     public int getCurrentTurn() { return currentTurn; }
-
-    /** Processes the current turn. The future session loop owns advancing the turn number. */
-    public void startTurn() {
-        if (!started) {
-            throw new IllegalStateException("Call startGame() first.");
-        }
-
-        if (currentTurn >= MAX_TURN) {
-            throw new IllegalStateException("All turns are complete.");
-        }
-
-        currentTurn++;
-
-        // Displays the state at the beginning of this turn.
-        ui.displayGameState();
-
-        // Handles arrivals, staff actions, payments, satisfaction, etc.
-        turnController.runTurn(currentTurn);
-    }
 }
-
