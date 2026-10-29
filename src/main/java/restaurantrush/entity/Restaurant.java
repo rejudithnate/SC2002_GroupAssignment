@@ -13,6 +13,7 @@ public final class Restaurant {
     public static final int TABLE_COUNT = 2;
     public static final int MAX_ORDERS = 6;
     private double revenue;
+    private final Menu menu = new Menu();
     private final List<Table> tables = List.of(new Table(1), new Table(2));
     private final List<Order> orders = new ArrayList<>();
     private final Waiter waiter = new Waiter();
@@ -27,6 +28,7 @@ public final class Restaurant {
     public double getRevenue() { return revenue; }
     public List<Table> getTables() { return tables; }
     public List<Order> getOrders() { return List.copyOf(orders); }
+    public Menu getMenu() { return menu; }
     public Waiter getWaiter() { return waiter; }
     public Chef getChef() { return chef; }
     public Cashier getCashier() { return cashier; }
