@@ -2,7 +2,7 @@
 
 1. Pull the latest `main` and create a short-lived branch, for example `feature/waiter-actions` or `fix/table-association`.
 2. Claim a task in the team's issue tracker or chat. Use the ownership table in README to avoid simultaneous edits to the same class.
-3. Agree method signatures and state transitions with dependent contributors before changing a shared contract. Contributors 1 and 2 review `GameView` and `GameState` changes together.
+3. Agree method signatures and state transitions with dependent contributors before changing a shared contract. Contributors 1 and 2 review calls between `GameController` and `GameUI` together.
 4. Keep each commit/PR focused on one behavior. Do not commit compiled output or local IDE settings.
 5. Run `./scripts/build.ps1 -Test` and exercise any new console path before opening a PR. Add behavioral tests when implementing rules; update the explicit stub expectations as those methods become real.
 6. Ask one teammate to review correctness and BCE boundaries, then merge. Update your branch from `main` regularly and resolve conflicts with the affected owner.
