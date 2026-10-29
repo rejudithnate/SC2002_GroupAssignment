@@ -6,7 +6,7 @@ import restaurantrush.control.GameController;
 import restaurantrush.control.TurnController;
 import restaurantrush.entity.Restaurant;
 
-/** Composition root: constructs and connects the application dependencies. */
+/** Composition root: constructs and connects one game session. */
 public final class Main {
     private Main() { }
 
@@ -14,10 +14,8 @@ public final class Main {
         Restaurant restaurant = new Restaurant();
         try (Scanner scanner = new Scanner(System.in)) {
             GameUI ui = new GameUI(scanner, System.out);
-            TurnController turns = new TurnController(restaurant);
-            GameController game = new GameController(restaurant, turns, ui);
+            GameController game = new GameController(restaurant, new TurnController(restaurant), ui);
             game.startGame();
-            System.out.println("Skeleton ready. Gameplay, menu data and victory rules are TODOs; see docs/TASKS.md.");
         }
     }
 }

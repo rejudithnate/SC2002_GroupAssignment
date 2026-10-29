@@ -1,38 +1,28 @@
-
 package restaurantrush.entity;
 
+import java.math.BigDecimal;
 import java.util.Objects;
 
 public final class MenuItem {
-
     private final String itemName;
-    private final double price;
+    private final int priceCents;
     private final int preparationUnits;
 
     public MenuItem(String itemName, double price, int preparationUnits) {
-
         this.itemName = Objects.requireNonNull(itemName);
-
-        if (itemName.isBlank() || !Double.isFinite(price)
-                || price < 0 || preparationUnits < 1) {
-            throw new IllegalArgumentException(
-                "Menu items need a name, nonnegative price and positive preparation units"
-            );
+        if (itemName.isBlank() || !Double.isFinite(price) || price < 0 || preparationUnits < 1) {
+            throw new IllegalArgumentException("Expected a name, nonnegative price and positive preparation units");
         }
-
-        this.price = price;
+        try {
+            priceCents = BigDecimal.valueOf(price).movePointRight(2).intValueExact();
+        } catch (ArithmeticException exception) {
+            throw new IllegalArgumentException("Price must fit integer cents with at most two decimals", exception);
+        }
         this.preparationUnits = preparationUnits;
     }
 
-    public String getName() {
-        return itemName;
-    }
-
-    public double getPrice() {
-        return price;
-    }
-
-    public int getPreparationUnits() {
-        return preparationUnits;
-    }
+    public String getName() { return itemName; }
+    public int getPriceCents() { return priceCents; }
+    public double getPrice() { return priceCents / 100.0; }
+    public int getPreparationUnits() { return preparationUnits; }
 }

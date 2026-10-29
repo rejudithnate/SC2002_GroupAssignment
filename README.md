@@ -4,7 +4,7 @@ A Java command-line restaurant management project organised using Boundary–Con
 
 Repository: [rejudithnate/SC2002_GroupAssignment](https://github.com/rejudithnate/SC2002_GroupAssignment).
 
-**Current status: skeleton, not yet a playable Stage 1.** The code contains the 12 original UML classes, both enums, a console entry point and skeleton contract checks. Running it displays initial state only. The rules below are implementation requirements, not claims of completed functionality. Stage 1 must contain only Regular customers and basic restaurant operation; later-stage features are out of scope.
+**Current status: playable Stage 1 with behavioral regression checks.** The console game runs all 18 turns with manager-selected staff tasks, automatic payments, abandonment and final scoring. Only Regular customers and basic restaurant operation are included. See [verification notes](docs/STAGE1_TEST_NOTES.md) for reproducible victory and defeat runs; team review and release tagging remain pending.
 
 ## Required Stage 1 base setting
 
@@ -43,16 +43,16 @@ At each turn end, show served count, unhappy departures, revenue, average satisf
 
 The manual's Pasta example is a timing check: seat on turn 1 (satisfaction 92), take the order and prepare unit 1 on turn 2 (84), complete preparation on turn 3 (76), serve on turn 4, become READY_TO_PAY on turn 5, and pay $18 on turn 6 with satisfaction 76. The turn-16 arrival cannot pay by turn 18, so at most five customers can pay in this base setting.
 
-## Gaps in the current skeleton
+## Implemented behavior
 
-- Implement the full turn loop, action selection, arrivals, eating/payment delays, abandonment and final result.
-- Replace the current active-customer satisfaction average and empty value `0` with payment-time history and an explicit no-payments state for `N/A`.
-- Wire manager-selected seating through `removeWaitingCustomer(customer)` rather than always using `pollWaitingCustomer()`. Payment priority remains oldest eligible customer first.
-- Enforce one automatic Cashier payment per turn and free the table as part of payment. The existing payment helper does not implement the full workflow.
-- Populate the three-item menu and define the reproducible customer food-selection rule.
-- Keep counters and terminology consistent: the current `servedCustomers` field increments on payment.
+- Choose a displayed task number for each staff member; 0 always means Wait. Both choices are collected before actions execute.
+- Customers select Pasta, Salad and Burger in a repeating cycle by customer ID. The manager never selects food.
+- Money is stored in integer cents. Payment records satisfaction once and clears the payment queue entry and table.
+- Served counts meals delivered; paid count is separate. Before anyone pays, the average displays N/A.
+- Invalid input is retried. End-of-input stops gracefully without displaying an unfinished game's result.
+- Each controller represents one session. Create a new controller and restaurant to play again.
 
-The [architecture notes](docs/ARCHITECTURE.md) describe the original scaffold and contain provisional assumptions from before the manual was supplied. Where they differ, the manual-backed requirements here and in [TASKS.md](docs/TASKS.md) govern Stage 1 implementation.
+The [architecture notes](docs/ARCHITECTURE.md) describe the implemented contracts and timing. The [test notes](docs/STAGE1_TEST_NOTES.md) document the manual's Pasta timeline and complete game replays.
 
 ## Build and run
 
@@ -88,7 +88,7 @@ src/main/java/restaurantrush/
   control/                     GameController, TurnController
   entity/                      Restaurant, Customer, Table, Order, Menu, MenuItem,
                                Waiter, Chef, Cashier, CustomerStatus, OrderStatus
-src/test/java/restaurantrush/   contract checks
+src/test/java/restaurantrush/   behavioral regression checks
 scripts/build.ps1              compile, test and run
 docs/                         architecture, UML decisions and team tasks
 ```
@@ -112,8 +112,8 @@ Stage 1 must compile and run independently at the Git tag `stage-1`. Create that
 | Evidence | Current status / required contents |
 | --- | --- |
 | Runnable `stage-1` release | Pending: verify a clean checkout builds and runs offline |
-| Reproducible victory run | Pending: record tag/commit, selection rule or seed, every manager action, and final paid count, revenue and paid-customer average |
-| Reproducible defeat run | Pending: record the same information and identify the unmet target(s) after turn 18 |
-| Test notes | To be created at `docs/STAGE1_TEST_NOTES.md`; include the manual's Pasta timeline, edge cases and both complete runs |
+| Reproducible victory run | Verified locally: 5 paid, $69.00, average 74.4; see test notes for all actions and baseline commit |
+| Reproducible defeat run | Verified locally: Wait every turn; 0 paid, $0.00, N/A average; all targets unmet |
+| Test notes | Available at `docs/STAGE1_TEST_NOTES.md`; include the manual's Pasta timeline, edge cases and both complete runs |
 
 Preserve the Stage 1 source snapshot and test notes in Git. This scope does not include later-stage implementation or the full-assignment submission package.
